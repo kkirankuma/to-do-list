@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: url('background-image.jpg') no-repeat center center fixed; /* Replace 'background-image.jpg' with your image file */
+            background-size: cover;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #fff; /* White text color */
+        }
+
+        .container {
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            padding: 20px;
+            background-color: #ffeb3b; /* Yellow background */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h1 {
+            color: #333; /* Dark header text color */
+            margin-bottom: 20px;
+        }
+
+        #taskInput {
+            width: 70%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #333; /* Dark button color */
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #555; /* Darker button color on hover */
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: #fff; /* White task background */
+            margin-bottom: 8px;
+            border: 1px solid #e1e1e1; /* Light border color */
+            border-radius: 4px;
+        }
+
+        li.completed {
+            background-color: #c3e6cb;
+            border: 1px solid #7cb077;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .color-picker {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        .color-option {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .color-option.selected {
+            border: 2px solid #333; /* Dark border for selected color */
+        }
+
+        .draggable {
+            cursor: grab;
+        }
+
+        .draggable:active {
+            cursor: grabbing;
+        }
+    </style>
+    <title>To-Do List</title>
+</head>
+<body>
+    <div class="container">
+        <h1>To-Do List</h1>
+        <input type="text" id="taskInput" placeholder="Add a new task...">
+        <button onclick="addTask()">Add Task</button>
+        <ul id="taskList" class="draggable"></ul>
+
+        <div class="color-picker">
+            <span>Task Color:</span>
+            <div class="color-option selected" style="background-color: #ff9999;" onclick="selectColor('#ff9999')"></div>
+            <div class="color-option" style="background-color: #99ff99;" onclick="selectColor('#99ff99')"></div>
+            <div class="color-option" style="background-color: #9999ff;" onclick="selectColor('#9999ff')"></div>
+            <div class="color-option" style="background-color: #ffff99;" onclick="selectColor('#ffff99')"></div>
+            <div class="color-option" style="background-color: #ffcc99;" onclick="selectColor('#ffcc99')"></div>
+            <div class="color-option" style="background-color: #cc99ff;" onclick="selectColor('#cc99ff')"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.11/dist/interact.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Load tasks and task order from local storage
+            loadTasks();
+            loadTaskOrder();
+
+            // Event listener for adding a new task
+            document.getElementById('taskInput').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    addTask();
+                }
+            });
+        });
+
+        function addTask() {
+            // Get input value
+            const taskInput = document.getElementById('taskInput');
+            const taskText = taskInput.value.trim();
+
+            if (taskText !== '') {
+                // Create task object
+                const task = {
+                    id: new Date().getTime(),
+                    text: taskText,
+                    completed: false,
+                    color: getSelectedColor(),
+                };
+
+                // Add task to the list
+                const taskList = document.getElementById('taskList');
+                taskList.appendChild(createTaskElement(task));
+
+                // Save tasks and task order to local storage
+                saveTasks();
+                saveTaskOrder();
+
+                // Clear input
+                taskInput.value = '';
+            }
+        }
+
+        function createTaskElement(task) {
+            const li = document.createElement('li');
+            li.id = task.id;
+            li.classList.toggle('completed', task.completed);
+            li.style.backgroundColor = task.color;
+
+            // Task text
+            const taskText = document.createElement('span');
+            taskText.textContent = task.text;
+            li.appendChild(taskText);
+
+            // Buttons
+            const buttonsDiv = document.createElement('div');
+            buttonsDiv.className = 'buttons';
+            buttonsDiv.innerHTML = `
+                <button onclick="toggleTaskCompletion(${task.id})">${task.completed ? 'Undo' : 'Complete'}</button>
+                <button onclick="editTask(${task.id})">Edit</button>
+                <button onclick="deleteTask(${task.id})">Delete</button>
+            `;
+            li.appendChild(buttonsDiv);
+
+            return li;
+        }
+
+        function toggleTaskCompletion(taskId) {
+            const taskElement = document.getElementById(taskId);
+            taskElement.classList.toggle('completed');
+
+            // Update task completion status
+            updateTaskStatus(taskId);
+        }
+
+        function editTask(taskId) {
+            const taskElement = document.getElementById(taskId);
+            const taskText = taskElement.querySelector('span');
+
+            const newText = prompt('Edit task:', taskText.textContent);
+            if (newText !== null) {
+                taskText.textContent = newText;
+
+                // Update task text in local storage
+                updateTaskText(taskId, newText);
+            }
+        }
+
+        function deleteTask(taskId) {
+            const taskElement = document.getElementById(taskId);
+            taskElement.remove();
+
+            // Remove task from local storage
+            removeTask(taskId);
+
+            // Save updated task order to local storage
+            saveTaskOrder();
+        }
+
+        function getSelectedColor() {
+            return document.querySelector('.color-option.selected').style.backgroundColor;
+        }
+
+        function selectColor(color) {
+            document.querySelectorAll('.color-option').forEach(option => option.classList.remove('selected'));
+            document.querySelector(`.color-option[style="background-color: ${color};"]`).classList.add('selected');
+        }
+
+        interact('.draggable').draggable({
+            inertia: true,
+            modifiers: [
+                interact.modifiers.restrictRect({
+                    restriction: 'parent',
+                    endOnly: true,
+                }),
+            ],
+            autoScroll: true,
+            onend(event) {
+                const target = event.target;
+                const taskId = parseInt(target.id);
+                updateTaskOrder(taskId);
+            },
+        });
+
+        function updateTaskOrder(draggedTaskId) {
+            const taskList = document.getElementById('taskList');
+            const tasks = Array.from(taskList.children).map(taskElement => {
+                const id = parseInt(taskElement.id);
+                return { id };
+            });
+
+            // Find the dragged task
+            const draggedTask = tasks.find(task => task.id === draggedTaskId);
+
+            // Remove the dragged task from the list
+            const updatedTasks = tasks.filter(task => task.id !== draggedTaskId);
+
+            // Insert the dragged task at the new position
+            const index = Array.from(taskList.children).indexOf(document.getElementById(draggedTaskId.toString()));
+            updatedTasks.splice(index, 0, draggedTask);
+
+            // Save the updated task order to local storage
+            saveTaskOrder(updatedTasks);
+        }
+
+        function loadTasks() {
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+            // Create task elements and append to the list
+            const taskList = document.getElementById('taskList');
+            tasks.forEach(task => {
+                taskList.appendChild(createTaskElement(task));
+            });
+        }
+
+        function saveTasks() {
+            const taskList = document.getElementById('taskList');
+            const tasks = Array.from(taskList.children).map(taskElement => {
+                const id = parseInt(taskElement.id);
+                const text = taskElement.querySelector('span').textContent;
+                const completed = taskElement.classList.contains('completed');
+                const color = taskElement.style.backgroundColor;
+                return { id, text, completed, color };
+            });
+
+            // Save tasks to local storage
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        function updateTaskStatus(taskId) {
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            const updatedTasks = tasks.map(task => {
+                if (task.id === taskId) {
+                    task.completed = !task.completed;
+                }
+                return task;
+            });
+
+            // Save updated tasks to local storage
+            localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+        }
+
+        function updateTaskText(taskId, newText) {
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            const updatedTasks = tasks.map(task => {
+                if (task.id === taskId) {
+                    task.text = newText;
+                }
+                return task;
+            });
+
+            // Save updated tasks to local storage
+            localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+        }
+
+        function removeTask(taskId) {
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            const updatedTasks = tasks.filter(task => task.id !== taskId);
+
+            // Save updated tasks to local storage
+            localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+        }
+
+        function loadTaskOrder() {
+            const taskOrder = JSON.parse(localStorage.getItem('taskOrder')) || [];
+
+            // Reorder tasks based on stored order
+            const taskList = document.getElementById('taskList');
+            taskOrder.forEach(taskId => {
+                const taskElement = document.getElementById(taskId.toString());
+                taskList.appendChild(taskElement);
+            });
+        }
+
+        function saveTaskOrder(updatedTasks) {
+            const taskOrder = updatedTasks.map(task => task.id);
+
+            // Save task order to local storage
+            localStorage.setItem('taskOrder', JSON.stringify(taskOrder));
+        }
+    </script>
+</body>
+</html>
